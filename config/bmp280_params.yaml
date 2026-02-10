@@ -1,0 +1,27 @@
+bmp280_barometer_node:
+  ros__parameters:
+    # ── Fake Mode ──────────────────────────────────────
+    fake_mode: true             # true: random data, false: real I2C
+
+    # ── I2C Settings ────────────────────────────────────
+    i2c_bus: 1                  # /dev/i2c-1
+    device_address: 0x76        # BMP280 default (SDO=GND), 0x77 if SDO=VDDIO
+
+    # ── Publish Rate ────────────────────────────────────
+    publish_rate: 10.0          # Hz
+
+    # ── TF Frame ────────────────────────────────────────
+    frame_id: "bmp280_link"
+
+    # ── Oversampling ────────────────────────────────────
+    #   0=skip  1=x1  2=x2  3=x4  4=x8  5=x16
+    pressure_oversampling: 5    # x16 (ultra high resolution)
+    temperature_oversampling: 2 # x2
+
+    # ── IIR Filter ──────────────────────────────────────
+    #   0=off  1=2  2=4  3=8  4=16
+    iir_filter: 4               # coefficient 16
+
+    # ── Variance ────────────────────────────────────────
+    pressure_variance: 0.0       # 0 = unknown
+    temperature_variance: 0.0    # 0 = unknown
