@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
+# Copyright 2025 The bmp280_barometer Authors
+#
+# Use of this source code is governed by an MIT-style
+# license that can be found in the LICENSE file or at
+# https://opensource.org/licenses/MIT.
 """ROS2 node that reads BMP280 over I2C and publishes pressure + temperature."""
 
 import time
 
+from bmp280_barometer.bmp280_driver import BMP280Driver, FakeBMP280Driver
+from rcl_interfaces.msg import SetParametersResult
 import rclpy
 from rclpy.node import Node
-from rcl_interfaces.msg import SetParametersResult
 from sensor_msgs.msg import FluidPressure, Temperature
 from std_srvs.srv import Trigger
 
-from bmp280_barometer.bmp280_driver import BMP280Driver, FakeBMP280Driver
-
 
 class BMP280BarometerNode(Node):
+    """ROS2 node for BMP280 barometric pressure and temperature sensor."""
+
     def __init__(self):
         super().__init__('bmp280_barometer_node')
 
-        # ── Declare parameters ────────────────────────────────────
+        # Declare parameters
         self.declare_parameter('fake_mode', True)
         self.declare_parameter('i2c_bus', 1)
         self.declare_parameter('device_address', 0x76)
@@ -28,26 +34,26 @@ class BMP280BarometerNode(Node):
         self.declare_parameter('pressure_variance', 0.0)
         self.declare_parameter('temperature_variance', 0.0)
 
-        # ── Read parameters ───────────────────────────────────────
+        # Read parameters
         self.fake_mode = self.get_parameter('fake_mode').value
-        self.bus_num   = self.get_parameter('i2c_bus').value
-        self.address   = self.get_parameter('device_address').value
-        rate           = self.get_parameter('publish_rate').value
-        self.frame_id  = self.get_parameter('frame_id').value
-        self.press_os  = self.get_parameter('pressure_oversampling').value
-        self.temp_os   = self.get_parameter('temperature_oversampling').value
+        self.bus_num = self.get_parameter('i2c_bus').value
+        self.address = self.get_parameter('device_address').value
+        rate = self.get_parameter('publish_rate').value
+        self.frame_id = self.get_parameter('frame_id').value
+        self.press_os = self.get_parameter('pressure_oversampling').value
+        self.temp_os = self.get_parameter('temperature_oversampling').value
         self.iir_filter = self.get_parameter('iir_filter').value
         self.press_var = self.get_parameter('pressure_variance').value
-        self.temp_var  = self.get_parameter('temperature_variance').value
+        self.temp_var = self.get_parameter('temperature_variance').value
 
-        # ── Pressure / temperature bias (set by calibration) ──────
+        # Pressure / temperature bias (set by calibration)
         self.press_bias = 0.0
         self.temp_bias = 0.0
 
-        # ── Initialise driver ─────────────────────────────────────
+        # Initialise driver
         self._init_driver()
 
-        # ── Publishers + timer ────────────────────────────────────
+        # Publishers + timer
         self.pub_press = self.create_publisher(
             FluidPressure, 'bmp280/pressure', 10)
         self.pub_temp = self.create_publisher(
@@ -57,17 +63,17 @@ class BMP280BarometerNode(Node):
             f'Publishing on "bmp280/pressure" and "bmp280/temperature" '
             f'@ {rate} Hz')
 
-        # ── Services ──────────────────────────────────────────────
+        # Services
         self.create_service(Trigger, 'bmp280/calibrate', self._calibrate_cb)
         self.create_service(Trigger, 'bmp280/reset', self._reset_cb)
         self.get_logger().info(
             'Services: "bmp280/calibrate", "bmp280/reset"')
 
-        # ── Parameter change callback ─────────────────────────────
+        # Parameter change callback
         self.add_on_set_parameters_callback(self._on_param_change)
 
-    # ── Driver init helper ───────────────────────────────────────
     def _init_driver(self):
+        """Initialize the BMP280 driver based on fake_mode parameter."""
         if self.fake_mode:
             self.driver = FakeBMP280Driver()
             self.get_logger().info(
@@ -85,8 +91,8 @@ class BMP280BarometerNode(Node):
                 self.get_logger().fatal(f'Failed to open BMP280: {e}')
                 raise
 
-    # ── Timer callback ───────────────────────────────────────────
     def _timer_cb(self):
+        """Read sensor and publish pressure and temperature messages."""
         try:
             pressure, temperature = self.driver.read_all()
         except OSError as e:
@@ -100,7 +106,7 @@ class BMP280BarometerNode(Node):
 
         stamp = self.get_clock().now().to_msg()
 
-        # ── FluidPressure (Pa) ────────────────────────────────────
+        # FluidPressure (Pa)
         press_msg = FluidPressure()
         press_msg.header.stamp = stamp
         press_msg.header.frame_id = self.frame_id
@@ -108,7 +114,7 @@ class BMP280BarometerNode(Node):
         press_msg.variance = self.press_var
         self.pub_press.publish(press_msg)
 
-        # ── Temperature (°C) ─────────────────────────────────────
+        # Temperature (C)
         temp_msg = Temperature()
         temp_msg.header.stamp = stamp
         temp_msg.header.frame_id = self.frame_id
@@ -116,8 +122,8 @@ class BMP280BarometerNode(Node):
         temp_msg.variance = self.temp_var
         self.pub_temp.publish(temp_msg)
 
-    # ── Service: /bmp280/calibrate ───────────────────────────────
     def _calibrate_cb(self, request, response):
+        """Handle calibration service request."""
         if self.fake_mode:
             response.success = True
             response.message = 'Calibration complete (fake)'
@@ -153,8 +159,8 @@ class BMP280BarometerNode(Node):
         self.get_logger().info(response.message)
         return response
 
-    # ── Service: /bmp280/reset ───────────────────────────────────
     def _reset_cb(self, request, response):
+        """Handle reset service request."""
         self.press_bias = 0.0
         self.temp_bias = 0.0
         self.driver.close()
@@ -165,8 +171,8 @@ class BMP280BarometerNode(Node):
         self.get_logger().info(response.message)
         return response
 
-    # ── Runtime parameter change ─────────────────────────────────
     def _on_param_change(self, params):
+        """Handle runtime parameter changes."""
         for param in params:
             if param.name == 'publish_rate':
                 new_rate = param.value
@@ -181,6 +187,7 @@ class BMP280BarometerNode(Node):
 
 
 def main(args=None):
+    """Entry point for the BMP280 barometer node."""
     rclpy.init(args=args)
     node = BMP280BarometerNode()
     try:
@@ -190,7 +197,10 @@ def main(args=None):
     finally:
         node.driver.close()
         node.destroy_node()
-        rclpy.shutdown()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

@@ -42,10 +42,17 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/config
 )
 
-# ── Linters (optional) ────────────────────────────────────────
+# ── Testing ───────────────────────────────────────────────────
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(launch_testing_ament_cmake REQUIRED)
+  add_launch_test(
+    test/test_bmp280_node.py
+    TARGET test_bmp280_node
+    TIMEOUT 30
+  )
 endif()
 
 ament_package()
