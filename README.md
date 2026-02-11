@@ -77,6 +77,13 @@ ros2 topic echo /bmp280/temperature
 | `pressure_variance` | double | `0.0` | Pressure variance (0 = unknown) |
 | `temperature_variance` | double | `0.0` | Temperature variance (0 = unknown) |
 
+## Services
+
+| Service | Type | Description |
+|---|---|---|
+| `bmp280/calibrate` | `std_srvs/Trigger` | Collect data for 2 seconds and compute pressure bias to standard atmosphere |
+| `bmp280/reset` | `std_srvs/Trigger` | Clear bias and reinitialize the sensor |
+
 ## Package Structure
 
 ```
@@ -90,9 +97,34 @@ bmp280_barometer/
 ├── bmp280_barometer/
 │   ├── __init__.py
 │   └── bmp280_driver.py
-└── nodes/
-    └── bmp280_node.py
+├── nodes/
+│   └── bmp280_node.py
+└── test/
+    └── test_bmp280_node.py
 ```
+
+## Test Results
+
+Tested on Ubuntu 24.04 (WSL2) with `fake_mode: true`.
+
+```
+$ colcon test --packages-select bmp280_barometer
+$ colcon test-result --verbose
+Summary: 28 tests, 0 errors, 0 failures, 0 skipped
+```
+
+| Test Category | Test | Result |
+|---|---|---|
+| **Topics** | `bmp280/pressure` publishes `sensor_msgs/FluidPressure` | PASS |
+| **Topics** | `bmp280/temperature` publishes `sensor_msgs/Temperature` | PASS |
+| **Topics** | `frame_id == "bmp280_link"` | PASS |
+| **Topics** | Pressure in range 90000-110000 Pa | PASS |
+| **Topics** | Temperature in range 15-35 °C | PASS |
+| **Services** | `bmp280/calibrate` returns `success=True` | PASS |
+| **Services** | `bmp280/reset` returns `success=True` | PASS |
+| **Parameters** | `publish_rate` runtime change to 20.0 Hz | PASS |
+| **Shutdown** | Clean exit (code 0, -2, or -15) | PASS |
+| **Linting** | pep257, flake8, copyright, xmllint | PASS |
 
 ## License
 
